@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from OpenGL.raw.GLUT import glutPostRedisplay
 import rospy
 import cv2
 import numpy as np
@@ -17,6 +18,7 @@ from std_msgs.msg import *
 from sensor_msgs.msg import *
 from cv_bridge import CvBridge, CvBridgeError
 
+# noinspection PyPep8Naming
 class kinect_listener:
 
   def __init__(self):
@@ -38,7 +40,7 @@ class kinect_listener:
     # self.sub_transform = rospy.Subscriber('/ar_single_board/transform', TransformStamped , self.callback_transform)
     # self.sub_position = rospy.Subscriber('/ar_single_board/position', Vector3Stamped , self.callback_position)
 
-    # DO EVERYTHING BEFORE THIS POINT
+    # DO EVERYTHING BEFORE THIS POINT!!!
     os.chdir( "/home/radek/3dPhoto/AugmentedRealityChess/pythonAnimations/pyOpenGLChess/")
     # thread.start_new_thread(self.start_game,())
     # self.game.start()
@@ -53,9 +55,9 @@ class kinect_listener:
     pos = data.pose.position
     pos = [[-pos.x], [-pos.y], [-pos.z], [1]]
     pos = np.matrix(pos)
-    print "========="
-    print np.transpose(pos)
-    print np.matrix(euler)*180/np.pi
+   # print "========="
+    #print np.transpose(pos)
+   # print np.matrix(euler)*180/np.pi
 
     #matrix[0][3] = -pos.x
     #matrix[1][3] = -pos.y
@@ -70,10 +72,24 @@ class kinect_listener:
     #print cam_or
     #cam_or[0:3] = cam_or[0:3]/cam_or[3]
 
-    print np.transpose(worldPos)
+    #print np.transpose(worldPos)
 
-    self.game.camPos = 10*worldPos[0:3]
-    #self.game.redraw()
+    up = np.matrix([[0], [1], [0], [0]])
+    trans = np.matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0],  [pos[0], pos[1], pos[2], 1]])
+    upTrans = inv*trans*up
+
+    newCamPos = 10*worldPos[0:3]
+    newCamUp = -upTrans[0:3]
+
+    delta = abs((newCamPos-self.game.camPos).sum())
+    print delta
+
+    if delta> 0.01:
+
+        self.game.camPos = newCamPos
+        self.game.up = newCamUp
+        # self.game.redraw()
+        glutPostRedisplay()
 
     #print cam_or[0:2]
 

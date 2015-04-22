@@ -48,10 +48,10 @@ bn::ndarray GetGlCamera(double fx, double cx, double fy, double cy,
 
   // get the cameras OpenGL matrix
   camPar.glGetProjectionMatrix(imSize,
-    glSize,proj_matrix,glNear,glFar);
-
-  cout << "glCam:" << endl;
-  for(int i = 0; i < 16; i++) cout << proj_matrix[i] << endl;
+    glSize,proj_matrix,glNear,glFar, false);
+	//cout << "ax:" << endl;
+  //cout << "glCam:" << endl;
+  //for(int i = 0; i < 16; i++) cout << proj_matrix[i] << endl;
 
   // numpy array init
   Py_intptr_t shape[2] = { 4, 4 };

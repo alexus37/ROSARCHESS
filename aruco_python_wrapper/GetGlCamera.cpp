@@ -31,26 +31,26 @@ bn::ndarray GetGlCamera(double fx, double cx, double fy, double cy,
   cam.at<float>(1,2) = cy;
   cam.at<float>(2,2) = 1.f;
 
-  cout << cam << endl;
+  ///cout << cam << endl;
 
   // dummy distortion coefficients - not needed
   cv::Mat dist = cv::Mat::zeros(4, 1,  CV_32FC1); 
 
 
   // camera image size
-  cv::Size imSize(imSizeY, imSizeX);
+  cv::Size imSize(imSizeX, imSizeY);
   // gl image size
-  cv::Size glSize(glSizeY, glSizeX);
+  cv::Size glSize(glSizeX, glSizeY);
 
   // initialize aruco camera
   CameraParameters camPar(cam,dist,imSize);
   double proj_matrix[16]; 
   double glNear = 0.05, glFar = 10.; 
 
-  cout << "Cam params wrapper:" << endl; 
+  /*cout << "Cam params wrapper:" << endl; 
   cout << camPar.CameraMatrix << endl;
   cout << camPar.Distorsion << endl;
-  cout << camPar.CamSize << endl;
+  cout << camPar.CamSize << endl;*/
 
 
   // get the cameras OpenGL matrix

@@ -40,7 +40,7 @@ class kinect_listener:
         # self.currentFrame = 0
         self.sub_rgb = rospy.Subscriber('/camera/rgb/image_rect_color', Image, self.callback_rgb)
         self.sub_depth = rospy.Subscriber('/camera/depth/image', Image, self.callback_depth)
-        self.sub_pose = rospy.Subscriber('/ar_single_board/pose', PoseStamped, self.callback_pose)
+        #self.sub_pose = rospy.Subscriber('/ar_single_board/pose', PoseStamped, self.callback_pose)
         self.sub_modelview = rospy.Subscriber('ar_single_board/modelview', Float32MultiArray, self.callback_modelview)
         self.sub_cam_info = rospy.Subscriber('/camera/rgb/camera_info', CameraInfo, self.callback_cam)
 
@@ -84,6 +84,8 @@ class kinect_listener:
             fy = self.P[1][1]
             cy = self.P[1][2]
             # print fy
+
+
             glP = cam.getGlCamera(fx,cx,fy,cy,self.imX, self.imY, self.game.width, self.game.height)
             glP = glP.flatten()
             self.game.projection = glP.view()
@@ -189,9 +191,8 @@ class kinect_listener:
         glutPostRedisplay()
 
     def callback_modelview(self, data):
-        #self.game.modelview = data.data
-        print type(data.data)
-        self.game.modelview = np.array(data.data).view() # array(data.data, dtype=float)
+        self.loadCamera()
+        self.game.modelview = np.array(data.data).flatten() # array(data.data, dtype=float)
         glutPostRedisplay()
 
     def callback_position(self, data):
@@ -200,6 +201,24 @@ class kinect_listener:
     def callback_transform(self, data):
         print "incoming transform!"
 
+    # def callback_rgb(self, data):
+    #     if self.game.ready:
+    #         try:
+    #             cv_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
+    #             cvHeight, cvWidth, _ = cv_image.shape
+    #
+    #             newX = float(self.game.width) / float(cvWidth)
+    #             newY = float(self.game.height) / float(cvHeight)
+    #
+    #             resizedFrame = cv2.resize(cv_image, (0, 0), fx=newX, fy=newY)
+    #             self.imY, self.imX, _ = resizedFrame.shape
+    #             self.game.TheResizedImage = resizedFrame
+    #             glutPostRedisplay()
+    #         except CvBridgeError, e:
+    #             print e
+    #         if self.display_stuff:
+    #             cv2.imshow("RGB window", cv_image)
+    #             cv2.waitKey(3)
 
     def callback_rgb(self, data):
         if self.game.ready:
@@ -216,15 +235,20 @@ class kinect_listener:
                 #print str(self.game.height) + ", " + str(self.game.width)
                 #print str(cvHeight) + ", " + str(cvWidth)
 
-                newX = float(self.game.width) / float(cvWidth)
-                newY = float(self.game.height) / float(cvHeight)
+                #newX = float(self.game.width) / float(cvWidth)
+                #newY = float(self.game.height) / float(cvHeight)
                 #print "scaleX = " + str(newX)
                 #print "scaleY = " + str(newY)
-                resizedFrame = cv2.resize(cv_image, (0, 0), fx=newX, fy=newY)
-                self.imY, self.imX, _ = resizedFrame.shape
+                #resizedFrame = cv2.resize(cv_image, (0, 0), fx=newX, fy=newY)
+                #self.imY, self.imX, _ = resizedFrame.shape
+                # self.game.currentFrame = resizedFrame
+
+
+                self.imY, self.imX, _ = cv_image.shape
+                self.game.currentFrame = cv_image
 
                 #print resizedFrame.shape
-                self.game.currentFrame = resizedFrame
+
                 self.game.newFrameArrived = True
                 glutPostRedisplay()
             except CvBridgeError, e:

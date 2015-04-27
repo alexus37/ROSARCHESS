@@ -106,8 +106,8 @@ ENDIF (BOOSTNUMPY_FOUND)
 
   find_package(aruco REQUIRED )
   #add_executable(aruco_simple aruco_simple.cpp)
-  ADD_LIBRARY(TestPyAruco SHARED TestPyAruco.cpp)
-  target_link_libraries(TestPyAruco  ${aruco_LIBS} ${Boost_LIBRARIES})
+  #ADD_LIBRARY(TestPyAruco SHARED TestPyAruco.cpp)
+  #target_link_libraries(TestPyAruco  ${aruco_LIBS} ${Boost_LIBRARIES})
 
   ADD_LIBRARY(GetGlCamera SHARED GetGlCamera.cpp)
   target_link_libraries(GetGlCamera  ${aruco_LIBS} ${Boost_LIBRARIES} ${BOOSTNUMPY_LIBRARY})

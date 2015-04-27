@@ -1,7 +1,11 @@
-import build/libGetGlCamera as cam 
+import libGetGlCamera as cam 
 import numpy as np 
 
 if __name__ == '__main__': 
+	#P = np.array([0.0, 1.1, 2.2])
+	#cam.stdVecToNumpyArray() 
+	cam.init()
+	
 	fx = 1.; 
 	fy = 1.; 
 	cx = 0.; 
@@ -11,8 +15,11 @@ if __name__ == '__main__':
 	glX = 100; 
 	glY = 100; 
 
-	glP = cam.getGlCamera
+	glP = cam.getGlCamera(fx,cx,fy,cy,imX,imY,glX,glY)
 
-	#P = np.array([0.0, 1.1, 2.2])
-	#P = cam.stdVecToNumpyArray() 
+	print glP
+
+	#P = cam.mywrapper() 
+	#cam.mywrapper2(P)
+	#print P
 

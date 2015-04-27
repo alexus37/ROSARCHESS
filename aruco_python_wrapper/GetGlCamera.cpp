@@ -29,11 +29,12 @@ bn::ndarray GetGlCamera(double fx, double cx, double fy, double cy,
   cam.at<float>(1,1) = fy;
   cam.at<float>(0,2) = cx;
   cam.at<float>(1,2) = cy;
+  cam.at<float>(2,2) = 1.f;
 
   cout << cam << endl;
 
   // dummy distortion coefficients - not needed
-  cv::Mat dist = cv::Mat::zeros(1, 4,  CV_32FC1); 
+  cv::Mat dist = cv::Mat::zeros(4, 1,  CV_32FC1); 
 
 
   // camera image size
@@ -45,6 +46,12 @@ bn::ndarray GetGlCamera(double fx, double cx, double fy, double cy,
   CameraParameters camPar(cam,dist,imSize);
   double proj_matrix[16]; 
   double glNear = 0.05, glFar = 10.; 
+
+  cout << "Cam params wrapper:" << endl; 
+  cout << camPar.CameraMatrix << endl;
+  cout << camPar.Distorsion << endl;
+  cout << camPar.CamSize << endl;
+
 
   // get the cameras OpenGL matrix
   camPar.glGetProjectionMatrix(imSize,

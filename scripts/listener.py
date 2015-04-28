@@ -43,13 +43,12 @@ class kinect_listener:
         #self.sub_pose = rospy.Subscriber('/ar_single_board/pose', PoseStamped, self.callback_pose)
         self.sub_modelview = rospy.Subscriber('ar_single_board/modelview', Float32MultiArray, self.callback_modelview)
         self.sub_cam_info = rospy.Subscriber('/camera/rgb/camera_info', CameraInfo, self.callback_cam)
+        self.sub_ir = rospy.Subscriber('/IR_data', Image, self.callback_ir)
+
 
         self.P = None
-        # self.px = 0
-        # self.py = 0
-
-        # self.sub_transform = rospy.Subscriber('/ar_single_board/transform', TransformStamped , self.callback_transform)
-        # self.sub_position = rospy.Subscriber('/ar_single_board/position', Vector3Stamped , self.callback_position)
+        self.imX = 640
+        self.imY = 480
 
         # DO EVERYTHING BEFORE THIS POINT!!!
         os.chdir("/home/radek/3dPhoto/AugmentedRealityChess/pythonAnimations/pyOpenGLChess/")
@@ -63,17 +62,9 @@ class kinect_listener:
 
     def callback_cam(self, data):
         if self.P is None:
-            #print data.P
+            # print data.P
             self.P = np.array(data.P)
             self.P = np.reshape(self.P, [3, 4])
-            #print self.P
-            # self.Pinv = np.matrix(np.linalg.pinv(P))
-            #
-            # K = np.array(data.K)
-            # K = np.reshape(K, [3, 3])
-            # print K
-            # self.px = K[0][2]
-            # self.py = K[1][2]
 
 
     def loadCamera(self):
@@ -90,104 +81,57 @@ class kinect_listener:
             glP = glP.flatten()
             self.game.projection = glP.view()
 
+    def callback_ir(self,data):
+        # print "IR image arrived"
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(data)
+            self.currentFrame = cv_image
+        except CvBridgeError, e:
+            print e
+            return
+        if self.display_stuff:
+            cv2.imshow("IR window", cv_image)
+            cv2.waitKey(3)
 
+        if self.video is None:
+            self.video = cv2.VideoWriter('~/catkin_ws/blob_detection.avi',-1,1,cv_image.shape)
 
-    # def glGetProjection(self, size):
-    #     Ay = size[0]/self.game.height
-    #     Ax = size[1]/self.game.width
-    #     # TODO: find out why do we do this twice
-    #     fx = P[0][0]*Ax
-    #     cx = P[0][2]*Ax
-    #     fy = P[1][0]*Ay
-    #     cy = P[1][2]*Ay
-    #     glP = [
-    #             [fx, 0,  xc, 0],
-    #             [0,  fy, cy, 0],
-    #             [0,  0,  1,  0]
-    #             ]
+        # Set up the detector with default parameters.
+        params = cv2.SimpleBlobDetector_Params()
+        params.blobColor = 255
+        #params.minThreshold = 80
+        #params.maxThreshold = 255
 
+        params.filterByConvexity = True
+        params.minConvexity = 0.80
+        params.maxConvexity = 1.0
+
+        params.filterByCircularity = True
+        params.minCircularity = 0.5
+        params.maxCircularity = 1
+
+        detector = cv2.SimpleBlobDetector(params)
+
+        # Detect blobs.
+        cv_image = cv2.resize(cv_image, (0,0), fx=10, fy=10)
+        keypoints = detector.detect(cv_image)
+        print keypoints
+        # Draw detected blobs as red circles.
+        # cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS ensures the size of the circle corresponds to the size of blob
+        im_with_keypoints = cv2.drawKeypoints(cv_image, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+        # Show keypoints
+        #resized = cv2.resize(im_with_keypoints, (0,0), fx=10, fy=10)
+        cv2.resizeWindow("Keypoints",400,400)
+        cv2.imshow("Keypoints", im_with_keypoints)
+        self.video.write(im_with_keypoints)
+        #cv2.waitKey(0)
 
     def callback_pose(self, data):
-
         if not self.game.ready:
             return
 
         self.loadCamera()
-
-        # q = data.pose.orientation
-        # euler = euler_from_quaternion([q.x, q.y, q.z, q.w])
-        # matrix = euler_matrix(euler[0], euler[1], euler[2])
-        # pos = data.pose.position
-        # pos = [[-pos.x], [-pos.y], [-pos.z], [1]]
-        # pos = np.matrix(pos)
-        # # print "========="
-        # # print np.transpose(pos)
-        # # print np.matrix(euler)*180/np.pi
-        #
-        # #matrix[0][3] = -pos.x
-        # #matrix[1][3] = -pos.y
-        # #matrix[2][3] = -pos.z
-        # inv = np.matrix(inverse_matrix(matrix))
-        #
-        #  worldPos = np.array( inv * pos)
-        #
-
-        # if self.Pinv is not None:
-        #     #print "============"
-        #     lookAt2D = np.matrix([[self.px], [self.py], [1]])
-        #     #print self.Pinv
-        #     #print lookAt2D.shape
-        #     lookAtCamFrame = self.Pinv * lookAt2D
-        #     # print lookAtCamFrame
-        #     #lookAtCamFrame = lookAtCamFrame/lookAtCamFrame[-1]
-        #     #print lookAtCamFrame
-        #     lookAtWorld = inv * lookAtCamFrame
-        #     self.game.lookAt = lookAtWorld[0:4]  #/lookAtWorld[4]
-        #     #print self.game.lookAt
-        #
-        #
-        # #cam_or = np.array([[0], [0], [0], [1]])
-        # #cam_or = np.dot(matrix, cam_or)
-        # #print matrix
-        # #print cam_or
-        # #cam_or[0:3] = cam_or[0:3]/cam_or[3]
-        #
-        # #print np.transpose(worldPos)
-        #
-        # up = np.matrix([[0.0], [1.0], [0.0], [0.0]])
-        # trans = np.matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [pos[0], pos[1], pos[2], 1]])
-        # upTrans = inv * trans * up
-        #
-        # newCamPos = worldPos[0:3]
-        # newCamUp = -upTrans[0:3]
-        #
-        # delta = abs((newCamPos - self.game.camPos).sum())
-        #
-        # if delta > 0.025:
-        #     self.game.camPos = newCamPos
-        #     self.game.up = newCamUp
-        # #
-        # #     F = -np.array([newCamPos.item(0), newCamPos.item(1), newCamPos.item(2) ] )
-        # #     f = F / np.linalg.norm(F)
-        # #
-        # #     s = np.cross(f, np.array([0, 0, 1])) #np.array(up[0:3]))
-        # #     s2 = np.array(s/np.linalg.norm(s))
-        # #     u = np.cross(s2,  f)
-        # #     u = u / np.linalg.norm(u)
-        # #
-        # #     M =  np.matrix(
-        # #                     [ [ s2[0], s2[1], s2[2], 0 ],
-        # #                       [ u[0], u[1], u[2], 0 ],
-        # #                       [-f[0],-f[1],-f[2], 0],
-        # #                       [0, 0, 0, 1] ])
-        # #
-        # #     T = np.matrix([ [1, 0, 0, -newCamPos[0]],
-        # #                     [0, 1, 0, -newCamPos[1]],
-        # #                     [0, 0, 1, -newCamPos[2]],
-        # #                     [0, 0, 0, 1] ])
-        # #     self.game.cameraMatrix = T*M
-        # #     self.game.invCameraMatrix = numpy.linalg.inv(self.game.cameraMatrix)
-
         glutPostRedisplay()
 
     def callback_modelview(self, data):
@@ -201,32 +145,12 @@ class kinect_listener:
     def callback_transform(self, data):
         print "incoming transform!"
 
-    # def callback_rgb(self, data):
-    #     if self.game.ready:
-    #         try:
-    #             cv_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
-    #             cvHeight, cvWidth, _ = cv_image.shape
-    #
-    #             newX = float(self.game.width) / float(cvWidth)
-    #             newY = float(self.game.height) / float(cvHeight)
-    #
-    #             resizedFrame = cv2.resize(cv_image, (0, 0), fx=newX, fy=newY)
-    #             self.imY, self.imX, _ = resizedFrame.shape
-    #             self.game.TheResizedImage = resizedFrame
-    #             glutPostRedisplay()
-    #         except CvBridgeError, e:
-    #             print e
-    #         if self.display_stuff:
-    #             cv2.imshow("RGB window", cv_image)
-    #             cv2.waitKey(3)
 
     def callback_rgb(self, data):
         if self.game.ready:
             try:
                 cv_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
                 # self.currentFrame = cv_image
-                #print cv_image
-                #cv2.cvtColor()
                 #resizedFrame = cv_image
                 #print "-----------"
                 #print cv_image.shape
@@ -242,7 +166,6 @@ class kinect_listener:
                 #resizedFrame = cv2.resize(cv_image, (0, 0), fx=newX, fy=newY)
                 #self.imY, self.imX, _ = resizedFrame.shape
                 # self.game.currentFrame = resizedFrame
-
 
                 self.imY, self.imX, _ = cv_image.shape
                 self.game.currentFrame = cv_image

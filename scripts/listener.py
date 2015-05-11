@@ -13,13 +13,14 @@ sys.path.insert(0, "/home/radek/3dPhoto/AugmentedRealityChess/pythonAnimations/p
 sys.path.insert(0, "/home/radek/catkin_ws/src/kinect_io/aruco_python_wrapper/build")
 import GameNoLogic
 import libGetGlCamera as cam
+import time
 
 from tf.transformations import *
 from geometry_msgs.msg import *
 from std_msgs.msg import *
 from sensor_msgs.msg import *
 from cv_bridge import CvBridge, CvBridgeError
-
+from matplotlib import pyplot as plt
 
 # noinspection PyPep8Naming
 class kinect_listener:
@@ -39,12 +40,19 @@ class kinect_listener:
         self.bridge = CvBridge()
         # self.currentFrame = 0
         self.sub_rgb = rospy.Subscriber('/camera/rgb/image_rect_color', Image, self.callback_rgb)
+        self.sub_occlusion = rospy.Subscriber('/ar_single_board/occlusion_mask', Image, self.callback_occlusion)
         self.sub_depth = rospy.Subscriber('/camera/depth/image', Image, self.callback_depth)
         #self.sub_pose = rospy.Subscriber('/ar_single_board/pose', PoseStamped, self.callback_pose)
         self.sub_modelview = rospy.Subscriber('ar_single_board/modelview', Float32MultiArray, self.callback_modelview)
         self.sub_cam_info = rospy.Subscriber('/camera/rgb/camera_info', CameraInfo, self.callback_cam)
         self.sub_ir = rospy.Subscriber('/IR_data', Image, self.callback_ir)
 
+        self.timestamp = 0
+
+        # TODO: delete later
+        self.dummy_occluder = cv2.imread('/home/radek/3dPhoto/AugmentedRealityChess/images/open-hand.png', cv2.IMREAD_UNCHANGED)
+
+        #print self.dummy_occluder.shape()
 
         self.P = None
         self.imX = 640
@@ -81,8 +89,25 @@ class kinect_listener:
             glP = glP.flatten()
             self.game.projection = glP.view()
 
+    def callback_occlusion(self,data):
+        if not self.game.ready:
+            return
+        try:
+            occlusion_im = self.bridge.imgmsg_to_cv2(data)
+            hand = np.zeros((self.imY, self.imX, 4))
+            hand[:,:,0:3] = self.game.currentFrame
+            hand[:,:,3] =  occlusion_im * 255
+            self.game.currentHand = hand
+        except CvBridgeError, e:
+            print e
+            return
+
+
+
     def callback_ir(self,data):
         # print "IR image arrived"
+        if not self.game.ready:
+            return
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data)
             self.currentFrame = cv_image
@@ -93,29 +118,48 @@ class kinect_listener:
             cv2.imshow("IR window", cv_image)
             cv2.waitKey(3)
 
-        if self.video is None:
-            self.video = cv2.VideoWriter('~/catkin_ws/blob_detection.avi',-1,1,cv_image.shape)
 
         # Set up the detector with default parameters.
         params = cv2.SimpleBlobDetector_Params()
         params.blobColor = 255
-        #params.minThreshold = 80
-        #params.maxThreshold = 255
+        params.minThreshold = 80
+        params.maxThreshold = 110
 
-        params.filterByConvexity = True
-        params.minConvexity = 0.80
-        params.maxConvexity = 1.0
+        #params.filterByConvexity = True
+        #params.minConvexity = 0.80
+        #params.maxConvexity = 1.0
 
         params.filterByCircularity = True
-        params.minCircularity = 0.5
+        params.minCircularity = 0.75
         params.maxCircularity = 1
 
         detector = cv2.SimpleBlobDetector(params)
 
         # Detect blobs.
-        cv_image = cv2.resize(cv_image, (0,0), fx=10, fy=10)
+        cv_image = cv2.resize(cv_image, (640,480)) #, interpolation=cv2.INTER_NEAREST)
         keypoints = detector.detect(cv_image)
-        print keypoints
+
+        for kp in keypoints:
+            x = int(kp.pt[1])
+            y = int(kp.pt[0])
+
+            timestamp = int(time.time())
+
+            if (timestamp - self.timestamp) < 5000 and \
+                    abs(self.game.inputIRX - x) < 10 and \
+                    abs(self.game.inputIRY - y) < 10:
+                print "input discarded"
+                continue
+            self.timestamp = timestamp
+            print str(x) + "  " + str(y)
+            self.game.inputIRX = x
+            self.game.inputIRY = y
+            self.game.inputIRReady = True
+            glutPostRedisplay()
+            break
+
+
+        #print keypoints
         # Draw detected blobs as red circles.
         # cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS ensures the size of the circle corresponds to the size of blob
         im_with_keypoints = cv2.drawKeypoints(cv_image, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
@@ -124,8 +168,9 @@ class kinect_listener:
         #resized = cv2.resize(im_with_keypoints, (0,0), fx=10, fy=10)
         cv2.resizeWindow("Keypoints",400,400)
         cv2.imshow("Keypoints", im_with_keypoints)
-        self.video.write(im_with_keypoints)
-        #cv2.waitKey(0)
+
+        cv2.waitKey(3)
+
 
     def callback_pose(self, data):
         if not self.game.ready:
@@ -135,6 +180,8 @@ class kinect_listener:
         glutPostRedisplay()
 
     def callback_modelview(self, data):
+        if not self.game.ready:
+            return
         self.loadCamera()
         self.game.modelview = np.array(data.data).flatten() # array(data.data, dtype=float)
         glutPostRedisplay()
@@ -170,6 +217,7 @@ class kinect_listener:
                 self.imY, self.imX, _ = cv_image.shape
                 self.game.currentFrame = cv_image
 
+                #self.game.currentHand = self.dummy_occluder
                 #print resizedFrame.shape
 
                 self.game.newFrameArrived = True

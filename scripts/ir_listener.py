@@ -12,6 +12,7 @@ from geometry_msgs.msg import *
 from std_msgs.msg import *
 from sensor_msgs.msg import *
 from cv_bridge import CvBridge, CvBridgeError
+from matplotlib import pyplot as plt
 
 # noinspection PyPep8Naming
 class ir_listener:
@@ -75,7 +76,9 @@ class ir_listener:
     #resized = cv2.resize(im_with_keypoints, (0,0), fx=10, fy=10)
     cv2.resizeWindow("Keypoints",400,400)
     cv2.imshow("Keypoints", im_with_keypoints)
-    self.video.write(im_with_keypoints)
+    plt.imshow(im_with_keypoints)
+    plt.show()
+    #self.video.write(im_with_keypoints)
     #cv2.waitKey(0)
 
 

@@ -15,6 +15,8 @@ import GameNoLogic
 import libGetGlCamera as cam
 import time
 
+
+from tempfile import TemporaryFile
 from tf.transformations import *
 from geometry_msgs.msg import *
 from std_msgs.msg import *
@@ -48,12 +50,15 @@ class kinect_listener:
         self.sub_cam_info = rospy.Subscriber('/camera/rgb/camera_info', CameraInfo, self.callback_cam)
         self.sub_ir = rospy.Subscriber('/IR_data', Image, self.callback_ir)
         self.sub_Rt = rospy.Subscriber('/ar_single_board/Rt', Image, self.callback_Rt)
+        self.sub_K = rospy.Subscriber('/ar_single_board/K', Image, self.callback_K)
 
         # initialize rest of the stuff
         self.timestamp = 0
         self.currentFrame = None
         self.Rt = None
         self.P = None
+        self.K = None
+        self.Pcv = None
         self.imX = 640
         self.imY = 480
 
@@ -73,6 +78,9 @@ class kinect_listener:
             # print data.P
             self.P = np.array(data.P)
             self.P = np.reshape(self.P, [3, 4])
+            #print "K"
+            #K = np.reshape(np.array(data.K), [3, 3])
+            #np.save("/home/radek/catkin_ws/K.npy", K)
 
 
     def loadCamera(self):
@@ -89,6 +97,8 @@ class kinect_listener:
             self.game.projection = glP.view()
 
     def callback_occlusion(self,data):
+        self.game.flip = True
+        #print "mask"
         if not self.game.ready:
             return
         try:
@@ -99,6 +109,10 @@ class kinect_listener:
             hand[:,:,0:3] = self.game.currentFrame
             hand[:,:,3] =  occlusion_im * 255
             self.game.currentHand = hand
+            self.game.flip = 1
+            print hand.shape
+            cv2.imshow("mask window", hand)
+            #print "mask"
         except CvBridgeError, e:
             print e
             return
@@ -111,7 +125,8 @@ class kinect_listener:
             return
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data)
-            self.currentFrame = cv_image
+            #self.currentFrame = cv_image
+            cv2.imwrite("/home/radek/catkin_ws/ir_image.png", cv_image)
         except CvBridgeError, e:
             print e
             return
@@ -153,6 +168,11 @@ class kinect_listener:
         # BLOB DETECTION
         keypoints = detector.detect(cv_image)
 
+        P = np.matrix(self.K)*np.matrix(self.Rt)
+        R = np.matrix(self.Rt[0:3,0:3])
+        RT = R.transpose()
+
+
         for kp in keypoints:
             x = int(kp.pt[1])
             y = int(kp.pt[0])
@@ -166,6 +186,9 @@ class kinect_listener:
                 continue
             self.timestamp = timestamp
 
+
+
+
             # pass input to the game
             #print str(x) + "  " + str(y)
             #self.game.inputIRX = x
@@ -174,40 +197,58 @@ class kinect_listener:
             #glutPostRedisplay()
 
             # RT matrix of RGB camera, use this one for now
-            # TODO: add IR camera offset
-            Rt = np.matrix(self.Rt)
+            # # TODO: add IR camera offset
+            # Rt = np.matrix(self.Rt)
+            #
+            # # P = K[R|t] is the camera matrix of IR camera
+            # P = np.matrix(self.K)*np.matrix(Rt)
+            #
+            # # get pseudoinverse of Pir for backprojection
+            # #PirInv = cv2.invert(Pir)
+            #
+            # new_transform = np.ndarray(P.shape, np.float32)
+            # new_transform[:] = P[:]
+            # P_conv = new_transform
+            # retval, PInv = cv2.invert(P_conv, flags=cv2.DECOMP_SVD)
+            # #PInv = np.linalg.pinv(P)
+            # PInv = np.matrix(PInv)
+            #
+            # PX = np.matrix(PInv)*np.matrix(pt)
+            # PX = PX[:]/PX[3]
+            #
+            # direc = PX[0:3] - C
+            # intersectionplane = 2
+            # t2 = -C.item(intersectionplane)/direc.item(intersectionplane)
+            # planeX = dPoint.item(0)
+            # planeY = dPoint.item(1)
 
-            # P = K[R|t] is the camera matrix of IR camera
-            Pir = np.matrix(K)*np.matrix(Rt)
 
-            # get pseudoinverse of Pir for backprojection
-            #PirInv = cv2.invert(Pir)
-            PirInv = np.linalg.pinv(Pir)
-
-            # detected point in pixel coords
-            pt = np.matrix([[x], [y], [1]])
-
-            # back-project detected point
-            PX = np.matrix(PirInv)*np.matrix(pt)
-            # unhomogenize
-            PX = PX[0:3]/PX[3]
-
-            # get center of the camera in board (world space)
-            C = Rt * np.matrix([[0], [0], [0], [1]])
-
-            # ray has to pass through between C and PX
-            ray = (C - PX)
-            # to non-homogeneous
-            ray = ray[0:3]
-            # normalize the ray
-            ray = ray / np.linalg.norm(ray)
-
-            # intersection with xy plane
-            t = C[2]/ray[2]
-
-            # find out coordinates on the xy-plane
-            planeX = (t*ray[0] + C[0]).item(0)
-            planeY = (t*ray[1] + C[1]).item(0)
+            # PirInv = np.linalg.pinv(Pir)
+            #
+            # # detected point in pixel coords
+            # pt = np.matrix([[x], [y], [1]])
+            #
+            # # back-project detected point
+            # PX = np.matrix(PirInv)*np.matrix(pt)
+            # # unhomogenize
+            # PX = PX[0:3]/PX[3]
+            #
+            # # get center of the camera in board (world space)
+            # C = Rt * np.matrix([[0], [0], [0], [1]])
+            #
+            # # ray has to pass through between C and PX
+            # ray = (C - PX)
+            # # to non-homogeneous
+            # ray = ray[0:3]
+            # # normalize the ray
+            # ray = ray / np.linalg.norm(ray)
+            #
+            # # intersection with xy plane
+            # t = C[2]/ray[2]
+            #
+            # # find out coordinates on the xy-plane
+            # planeX = (t*ray[0] + C[0]).item(0)
+            # planeY = (t*ray[1] + C[1]).item(0)
 
             # is input valid?
             print "---"
@@ -268,6 +309,8 @@ class kinect_listener:
         self.loadCamera()
         self.game.modelview = np.array(data.data).flatten() # array(data.data, dtype=float)
         glutPostRedisplay()
+        #print "Modelview: "
+        #print self.game.modelview[-4:-1]
 
     def callback_position(self, data):
         print "incoming position!"
@@ -285,7 +328,26 @@ class kinect_listener:
         except CvBridgeError, e:
             print e
             return
-        self.Rt = Rt.copy()
+        self.Rt = np.matrix(Rt.copy())
+        self.Pcv = self.K*self.Rt
+        #outfile = TemporaryFile()
+        np.save("/home/radek/catkin_ws/Rt.npy", self.Rt)
+        #C = Rt * np.matrix([[0], [0], [0], [1]])
+        #print C.transpose()
+        #print self.Rt
+
+    def callback_K(self, data):
+        if self.K is not None:
+            return
+        try:
+            K = self.bridge.imgmsg_to_cv2(data)
+
+        except CvBridgeError, e:
+            print e
+            return
+        print "GOT K!"
+        self.K = np.matrix(K.copy())
+        np.save("/home/radek/catkin_ws/K.npy", self.K)
         #print self.Rt
 
 
@@ -296,6 +358,7 @@ class kinect_listener:
                 cv_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
 
                 cvHeight, cvWidth, _ = cv_image.shape
+                cv2.imwrite("/home/radek/catkin_ws/image.png", cv_image)
                 #print str(self.game.height) + ", " + str(self.game.width)
                 #print str(cvHeight) + ", " + str(cvWidth)
 
@@ -303,7 +366,7 @@ class kinect_listener:
                 #newY = float(self.game.height) / float(cvHeight)
                 #print "scaleX = " + str(newX)
                 #print "scaleY = " + str(newY)
-                #resizedFrame = cv2.resize(cv_image, (0, 0), fx=newX, fy=newY)
+                #resizedFrame =, fx=newX, fy=newY)
                 #self.imY, self.imX, _ = resizedFrame.shape
                 # self.game.currentFrame = resizedFrame
 

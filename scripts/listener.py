@@ -60,7 +60,7 @@ class kinect_listener:
         self.Rt = None
         self.P = None
         self.K = None
-        self.Pcv = None
+        #self.Pcv = None
         self.imX = 640
         self.imY = 480
 
@@ -160,12 +160,21 @@ class kinect_listener:
         # IR CAMERA CALIBRATION MATRIX - INSERT ACCURATE CALIBRATION HERE
         K = np.matrix([[757.164773, 0, 335.313573], [0, 823.419897, 138.458047], [0, 0, 1]])
 
+         # IR CAMERA DISTORTION COEFFICIENTS
+        distortion = np.matrix([-0.321378, -0.018411, -0.012105, -0.003352, 0])
+
+        # UNDISTORT THE IR IMAGE
+        cv_image = cv2.undistort(cv_image, K, distortion)
+
         # RGB TO IR RIGID MOTION MATRIX - INSERT ACCURATE MATRIX HERE
-        rgb2ir = np.matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        rgb2ir = np.matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        Rt = self.Rt
+        Rt = np.append(Rt, np.array([[0, 0, 0, 1]]), axis=0)
 
         # get Rt matrix of the IR camera
-        Rt_ir = rgb2ir*self.Rt
-        T = Rt_ir[:, 3]
+        Rt_ir = rgb2ir*Rt
+        Rt_ir = Rt_ir[0:3, :]
+        T = Rt_ir[0:3, 3]
 
         R =np.matrix(Rt_ir[0:3, 0:3])
         KRinv = np.linalg.inv(np.matrix(K)*R)
@@ -174,17 +183,15 @@ class kinect_listener:
         # GET CAMERA CENTER in world space
         C = - RT * T
 
-        # IR CAMERA DISTORTION COEFFICIENTS
-        distortion = np.matrix([-0.321378, -0.018411, -0.012105, -0.003352, 0])
-        #
-        # UNDISTORT THE IR IMAGE
-        cv_image = cv2.undistort(cv_image, K, distortion)
-
         # BLOB DETECTION
         keypoints = detector.detect(cv_image)
 
         # get inverse of the IR camera matrix
-        retval, PIrInv = cv2.invert(Pir, flags=cv2.DECOMP_SVD)
+        Pir = np.matrix(K)*np.matrix(Rt_ir)
+        new_transform = np.ndarray(Pir.shape, np.float32)
+        new_transform[:] = Pir[:]
+        P_conv = new_transform
+        retval, PIrInv = cv2.invert(P_conv, flags=cv2.DECOMP_SVD)
         PIrInv = np.matrix(PIrInv)
 
         for kp in keypoints:
@@ -207,10 +214,6 @@ class kinect_listener:
 
             # unhomogenize
             PX = PX[:]/PX[3]
-
-            # get center of the camera in board (world space)
-            C = Rt * np.matrix([[0], [0], [0], [1]])
-            C[1] = -C[1]
 
             # get the ray direction vector
             direc = PX[0:3] - C
@@ -263,7 +266,7 @@ class kinect_listener:
             print e
             return
         self.Rt = np.matrix(Rt.copy())
-        self.Pcv = self.K*self.Rt
+        #self.Pcv = self.K*self.Rt
         #np.save("/home/radek/catkin_ws/Rt.npy", self.Rt)
 
     # get K matrix

@@ -9,8 +9,11 @@ import sys
 import os
 import threading
 
+# REPLACE THIS PATH WITH PATH TO THE GAME FOLDER
 sys.path.insert(0, "/home/radek/3dPhoto/AugmentedRealityChess/pythonAnimations/pyOpenGLChess/")
+# REPLACE THIS PATH WITH PATH TO THE PYTHON ARUCO WRAPPER
 sys.path.insert(0, "/home/radek/catkin_ws/src/kinect_io/aruco_python_wrapper/build")
+
 import GameNoLogic
 import libGetGlCamera as cam
 import time
@@ -110,8 +113,8 @@ class kinect_listener:
             hand[:,:,3] =  occlusion_im * 255
             self.game.currentHand = hand
             self.game.flip = 1
-            print hand.shape
-            cv2.imshow("mask window", hand)
+           # print hand.shape
+            #cv2.imshow("mask window", hand)
             #print "mask"
         except CvBridgeError, e:
             print e
@@ -157,20 +160,20 @@ class kinect_listener:
         cv_image = cv2.resize(cv_image, (640,480))
 
         # IR CAMERA CALIBRATION MATRIX
-        K = np.matrix([[757.164773, 0, 335.313573], [0, 823.419897, 138.458047], [0, 0, 1]])
-
-        # IR CAMERA DISTORTION COEFFICIENTS
-        distortion = np.matrix([-0.321378, -0.018411, -0.012105, -0.003352, 0])
-
-        # UNDISTORT THE IR IMAGE
-        cv_image = cv2.undistort(cv_image, K, distortion)
+        # K = np.matrix([[757.164773, 0, 335.313573], [0, 823.419897, 138.458047], [0, 0, 1]])
+        #
+        # # IR CAMERA DISTORTION COEFFICIENTS
+        # distortion = np.matrix([-0.321378, -0.018411, -0.012105, -0.003352, 0])
+        #
+        # # UNDISTORT THE IR IMAGE
+        # cv_image = cv2.undistort(cv_image, K, distortion)
 
         # BLOB DETECTION
         keypoints = detector.detect(cv_image)
 
-        P = np.matrix(self.K)*np.matrix(self.Rt)
-        R = np.matrix(self.Rt[0:3,0:3])
-        RT = R.transpose()
+        # P = np.matrix(self.K)*np.matrix(self.Rt)
+        # R = np.matrix(self.Rt[0:3,0:3])
+        # RT = R.transpose()
 
 
         for kp in keypoints:
@@ -179,12 +182,12 @@ class kinect_listener:
 
             timestamp = int(time.time())
 
-            if (timestamp - self.timestamp) < 5000 and \
-                    abs(self.game.inputIRX - x) < 10 and \
-                    abs(self.game.inputIRY - y) < 10:
-                print "input discarded"
-                continue
-            self.timestamp = timestamp
+            # if (timestamp - self.timestamp) < 5000 and \
+            #         abs(self.game.inputIRX - x) < 10 and \
+            #         abs(self.game.inputIRY - y) < 10:
+            #     print "input discarded"
+            #     continue
+            # self.timestamp = timestamp
 
 
 
@@ -251,34 +254,34 @@ class kinect_listener:
             # planeY = (t*ray[1] + C[1]).item(0)
 
             # is input valid?
-            print "---"
-            if planeX > 5 or planeX < -5:
-                print "wrong x"
-                print str(planeX) + " " + str(planeY)
-                print Rt
-                break
-            if planeY > 5 or planeY < -5:
-                print "wrong y"
-                print str(planeX) + " " + str(planeY)
-                print Rt
-                break
-            if (timestamp - self.timestamp) < 8000 and \
-                    abs(self.game.inputIRX - planeX) < 0.1 and \
-                    abs(self.game.inputIRY - planeY) < 0.1:
-                print "input discarded"
-                continue
-            self.timestamp = timestamp
-
-            # pass input to the game
-            #print str(x) + "  " + str(y)
-            self.game.inputIRX = planeX
-            self.game.inputIRY = planeY
-            self.game.inputIRReady = True
-            glutPostRedisplay()
-            print Rt
-            print planeX
-            print planeY
-            self.f.write( str(planeX) + ' ' + str(planeY) + "\n")
+            # print "---"
+            # if planeX > 5 or planeX < -5:
+            #     print "wrong x"
+            #     print str(planeX) + " " + str(planeY)
+            #     print Rt
+            #     break
+            # if planeY > 5 or planeY < -5:
+            #     print "wrong y"
+            #     print str(planeX) + " " + str(planeY)
+            #     print Rt
+            #     break
+            # if (timestamp - self.timestamp) < 8000 and \
+            #         abs(self.game.inputIRX - planeX) < 0.1 and \
+            #         abs(self.game.inputIRY - planeY) < 0.1:
+            #     print "input discarded"
+            #     continue
+            # self.timestamp = timestamp
+            #
+            # # pass input to the game
+            # #print str(x) + "  " + str(y)
+            # self.game.inputIRX = planeX
+            # self.game.inputIRY = planeY
+            # self.game.inputIRReady = True
+            # glutPostRedisplay()
+            # print Rt
+            # print planeX
+            # print planeY
+            # self.f.write( str(planeX) + ' ' + str(planeY) + "\n")
 
             break
 
